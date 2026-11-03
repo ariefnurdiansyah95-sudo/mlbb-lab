@@ -800,7 +800,7 @@
 
     <footer>
         <span>MLBB Speedrun Lab — main <b>pintar</b>, bukan cuma <b>cepat</b>.</span>
-        <span>v5.2 · Local Data Fix</span>
+        <span>v5.3 · Robust Fallback Edition</span>
     </footer>
 </div>
 
@@ -1134,28 +1134,40 @@
 
     function getBuildForHero(hero) {
         const key = hero.name_hero.toLowerCase();
-        if (buildMap.has(key)) return buildMap.get(key);
+        if (buildMap.has(key)) {
+            const b = buildMap.get(key);
+            if (b && typeof b === 'object') return b;
+        }
         const role = (hero.role && hero.role[0] ? hero.role[0] : 'fighter').toLowerCase();
+        const defaultBuild = DEFAULT_BUILDS[role] || DEFAULT_BUILDS.fighter;
         return {
             hero_name: hero.name_hero,
             role: role.charAt(0).toUpperCase() + role.slice(1),
             speciality: [],
-            top_builds: [DEFAULT_BUILDS[role] || DEFAULT_BUILDS.fighter]
+            top_builds: [defaultBuild]
         };
     }
 
     function getCurrentBuild(hero) {
-        const build = getBuildForHero(hero);
-        let builds = build.top_builds;
+        const buildObj = getBuildForHero(hero);
+        let builds = buildObj.top_builds;
+        
+        // Pastikan array valid dan tidak kosong
         if (!Array.isArray(builds) || builds.length === 0) {
-            builds = [build];
+            builds = [DEFAULT_BUILDS.fighter];
         }
+        
         let idx = buildIndexMap.get(hero.name_hero) || 0;
         idx = idx % builds.length;
+        if (isNaN(idx) || idx < 0) idx = 0;
+        
         let currentBuild = builds[idx];
-        if (!currentBuild || !currentBuild.items) {
+        
+        // Pastikan currentBuild punya properti items
+        if (!currentBuild || typeof currentBuild !== 'object' || !currentBuild.items) {
             currentBuild = DEFAULT_BUILDS.fighter;
         }
+        
         return { build: currentBuild, index: idx, total: builds.length };
     }
 
@@ -1212,7 +1224,7 @@
             '</div>';
         } catch (e) {
             console.error('[MLBB] Gagal render hero:', hero.name_hero, e);
-            return ''; // skip broken hero
+            return ''; 
         }
     }
 
@@ -1232,7 +1244,9 @@
 
     function buildEquipmentMap(equipData) {
         equipmentMap.clear();
+        if (!Array.isArray(equipData)) return;
         equipData.forEach(function (item) {
+            if (!item || !item['name-equipment']) return;
             const key = norm(item['name-equipment']);
             equipmentMap.set(key, {
                 name: item['name-equipment'],
@@ -1243,13 +1257,15 @@
 
     function buildHeroBuildMap(builds) {
         buildMap.clear();
+        if (!Array.isArray(builds)) return;
         builds.forEach(function (b) {
+            if (!b || !b.hero_name) return;
             buildMap.set(b.hero_name.toLowerCase(), b);
         });
     }
 
     async function fetchJSON(path) {
-        const res = await fetch(CDN_BASE + path);
+        const res = await fetch(CDN_BASE + path + '?v=3'); // ?v=3 biar browser gak pake cache lama
         if (!res.ok) throw new Error('HTTP ' + res.status + ' saat memuat ' + path);
         return await res.json();
     }
