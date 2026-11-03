@@ -771,7 +771,7 @@
         <div class="hero-grid" id="heroGrid"></div>
 
         <div class="footnote">
-            Sumber data: dataset MLBB GitHub (Ceplin03). Foto hero &amp; icon item dimuat via jsDelivr CDN. Build adalah snapshot meta — hero di luar data memakai build default per role.
+            Sumber data: dataset MLBB GitHub (Ceplin03). Foto hero &amp; icon item disimpan secara lokal di folder <code>data/</code>.
         </div>
     </section>
 
@@ -800,7 +800,7 @@
 
     <footer>
         <span>MLBB Speedrun Lab — main <b>pintar</b>, bukan cuma <b>cepat</b>.</span>
-        <span>v5.1 · jsDelivr CDN Fix</span>
+        <span>v5.2 · Local Data Fix</span>
     </footer>
 </div>
 
@@ -1020,9 +1020,8 @@
     });
 
     /* ============================================================
-       HERO DATABASE — jsDelivr CDN + fallback proxy
+       HERO DATABASE — Local Data (./data/)
     ============================================================ */
-    // jsDelivr: CORS terbuka, cocok untuk browser & sandbox
     const CDN_BASE     = './data/';
     const HERO_IMG_BASE = './data/images-hero/';
     const ITEM_IMG_BASE = './data/logo-equipment/';
@@ -1147,10 +1146,17 @@
 
     function getCurrentBuild(hero) {
         const build = getBuildForHero(hero);
-        const builds = build.top_builds || [build];
+        let builds = build.top_builds;
+        if (!Array.isArray(builds) || builds.length === 0) {
+            builds = [build];
+        }
         let idx = buildIndexMap.get(hero.name_hero) || 0;
         idx = idx % builds.length;
-        return { build: builds[idx], index: idx, total: builds.length };
+        let currentBuild = builds[idx];
+        if (!currentBuild || !currentBuild.items) {
+            currentBuild = DEFAULT_BUILDS.fighter;
+        }
+        return { build: currentBuild, index: idx, total: builds.length };
     }
 
     function heroMatchesRole(hero) {
@@ -1165,44 +1171,49 @@
     }
 
     function createHeroCard(hero) {
-        const current = getCurrentBuild(hero);
-        const build = current.build;
-        const items = build.items || [];
-        const itemIcons = items.map(itemIconHtml).join('');
-        const roleText = (hero.role || []).join(' / ');
-        const specText = (build.speciality || []).join(' / ') || roleText;
-        const emblems = (build.emblems || []).join(' · ');
-        const spell = build.battle_spell || '—';
+        try {
+            const current = getCurrentBuild(hero);
+            const build = current.build;
+            const items = build.items || [];
+            const itemIcons = items.map(itemIconHtml).join('');
+            const roleText = (hero.role || []).join(' / ');
+            const specText = (build.speciality || []).join(' / ') || roleText;
+            const emblems = (build.emblems || []).join(' · ');
+            const spell = build.battle_spell || '—';
 
-        return '<div class="hero-card" data-hero="' + hero.name_hero + '">' +
-            '<div class="hero-card-head">' +
-                '<img class="hero-avatar" src="' + heroImageUrl(hero) + '" alt="' + hero.name_hero + '" loading="lazy" ' +
-                    'onerror="this.style.display=\'none\'; this.nextElementSibling.style.display=\'grid\';">' +
-                '<div class="hero-avatar-fallback" style="display:none;">' +
-                    hero.name_hero.charAt(0).toUpperCase() +
+            return '<div class="hero-card" data-hero="' + hero.name_hero + '">' +
+                '<div class="hero-card-head">' +
+                    '<img class="hero-avatar" src="' + heroImageUrl(hero) + '" alt="' + hero.name_hero + '" loading="lazy" ' +
+                        'onerror="this.style.display=\'none\'; this.nextElementSibling.style.display=\'grid\';">' +
+                    '<div class="hero-avatar-fallback" style="display:none;">' +
+                        hero.name_hero.charAt(0).toUpperCase() +
+                    '</div>' +
+                    '<div class="hero-card-head-info">' +
+                        '<b>' + hero.name_hero + '</b>' +
+                        '<small>' + roleText + ' · ' + specText + '</small>' +
+                    '</div>' +
+                    '<button class="build-cycle" data-hero="' + hero.name_hero + '" title="Ganti build">' +
+                        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">' +
+                            '<path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1.03 6.7 2.9L21 8"/>' +
+                            '<path d="M21 3v5h-5"/>' +
+                        '</svg>' +
+                    '</button>' +
                 '</div>' +
-                '<div class="hero-card-head-info">' +
-                    '<b>' + hero.name_hero + '</b>' +
-                    '<small>' + roleText + ' · ' + specText + '</small>' +
+                '<div class="hero-lane"><i></i> ' + (build.speciality && build.speciality[0] ? build.speciality[0] : roleText) + '</div>' +
+                '<div class="build-label">' +
+                    '<span>Build Rekomendasi</span>' +
+                    '<span class="build-count">' + (current.index + 1) + '/' + current.total + '</span>' +
                 '</div>' +
-                '<button class="build-cycle" data-hero="' + hero.name_hero + '" title="Ganti build">' +
-                    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">' +
-                        '<path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1.03 6.7 2.9L21 8"/>' +
-                        '<path d="M21 3v5h-5"/>' +
-                    '</svg>' +
-                '</button>' +
-            '</div>' +
-            '<div class="hero-lane"><i></i> ' + (build.speciality && build.speciality[0] ? build.speciality[0] : roleText) + '</div>' +
-            '<div class="build-label">' +
-                '<span>Build Rekomendasi</span>' +
-                '<span class="build-count">' + (current.index + 1) + '/' + current.total + '</span>' +
-            '</div>' +
-            '<div class="item-icons">' + itemIcons + '</div>' +
-            '<div class="hero-meta">' +
-                '<span>Emblem: <b>' + emblems + '</b></span><br>' +
-                '<span>Spell: <b>' + spell + '</b></span>' +
-            '</div>' +
-        '</div>';
+                '<div class="item-icons">' + itemIcons + '</div>' +
+                '<div class="hero-meta">' +
+                    '<span>Emblem: <b>' + emblems + '</b></span><br>' +
+                    '<span>Spell: <b>' + spell + '</b></span>' +
+                '</div>' +
+            '</div>';
+        } catch (e) {
+            console.error('[MLBB] Gagal render hero:', hero.name_hero, e);
+            return ''; // skip broken hero
+        }
     }
 
     function renderHeroes() {
@@ -1237,39 +1248,10 @@
         });
     }
 
-    /* === FETCH DENGAN FALLBACK 3 LAPIS === */
-    async function fetchJSON(url, timeoutMs) {
-        const controller = new AbortController();
-        const timer = setTimeout(function () { controller.abort(); }, timeoutMs || 12000);
-        try {
-            const res = await fetch(url, { signal: controller.signal, mode: 'cors' });
-            if (!res.ok) throw new Error('HTTP ' + res.status);
-            return await res.json();
-        } finally {
-            clearTimeout(timer);
-        }
-    }
-
-    async function fetchJSONWithFallback(path) {
-        // 1. jsDelivr (paling reliable, CORS terbuka)
-        try {
-            return await fetchJSON(CDN_BASE + path, 12000);
-        } catch (e1) {
-            console.warn('[MLBB] jsDelivr gagal:', e1.message, '→ coba raw GitHub');
-        }
-        // 2. raw.githubusercontent.com
-        try {
-            return await fetchJSON(RAW_BASE + path, 12000);
-        } catch (e2) {
-            console.warn('[MLBB] raw GitHub gagal:', e2.message, '→ coba CORS proxy');
-        }
-        // 3. CORS proxy
-        try {
-            return await fetchJSON(PROXY + encodeURIComponent(CDN_BASE + path), 18000);
-        } catch (e3) {
-            console.error('[MLBB] semua sumber gagal:', e3.message);
-            throw new Error('Gagal memuat ' + path + ' dari semua sumber.');
-        }
+    async function fetchJSON(path) {
+        const res = await fetch(CDN_BASE + path);
+        if (!res.ok) throw new Error('HTTP ' + res.status + ' saat memuat ' + path);
+        return await res.json();
     }
 
     async function loadHeroDatabase() {
@@ -1279,9 +1261,9 @@
 
         try {
             const results = await Promise.all([
-                fetchJSONWithFallback(HERO_JSON_PATH),
-                fetchJSONWithFallback(EQUIP_JSON_PATH),
-                fetchJSONWithFallback(BUILD_JSON_PATH)
+                fetchJSON(HERO_JSON_PATH),
+                fetchJSON(EQUIP_JSON_PATH),
+                fetchJSON(BUILD_JSON_PATH)
             ]);
 
             heroesData = results[0];
@@ -1301,14 +1283,11 @@
             heroStatus.innerHTML =
                 '<div style="font-size:0.9rem;font-weight:700;margin-bottom:8px;">Gagal memuat database hero</div>' +
                 '<div style="font-size:0.78rem;color:var(--text-muted);line-height:1.7;">' +
-                    'Penyebab umum: koneksi internet terblokir, CORS, atau file dibuka langsung via <code>file://</code>.<br>' +
-                    'Coba: <b>1)</b> buka lewat local server (contoh: <code>python -m http.server</code>), ' +
-                    '<b>2)</b> cek koneksi, <b>3)</b> klik tombol di bawah.' +
+                    'Pastikan folder <code>data/</code> sudah di-upload ke GitHub dan berisi: <br>' +
+                    '<code>hero.json</code>, <code>equipment.json</code>, <code>build-item.json</code>.<br>' +
+                    'Error detail: <b>' + String(err.message) + '</b>' +
                 '</div>' +
-                '<button type="button" onclick="location.reload()">Muat Ulang</button>' +
-                '<div style="font-size:0.68rem;color:var(--text-dim);margin-top:10px;">' +
-                    'Error: ' + String(err.message || err) +
-                '</div>';
+                '<button type="button" onclick="location.reload()">Muat Ulang</button>';
         }
     }
 
@@ -1333,7 +1312,8 @@
         const hero = heroesData.find(function (h) { return h.name_hero === heroName; });
         if (!hero) return;
         const build = getBuildForHero(hero);
-        const total = (build.top_builds || []).length || 1;
+        let total = build.top_builds ? build.top_builds.length : 1;
+        if (total === 0) total = 1;
         const next = ((buildIndexMap.get(heroName) || 0) + 1) % total;
         buildIndexMap.set(heroName, next);
         renderHeroes();
