@@ -580,53 +580,53 @@
             </div>
             <div class="card-title">
                 <h2>Winrate Calculator</h2>
-                <p>Hitung WR &amp; target win streak</p>
+                <p>Hitung WR &amp; target win streak (Takapedia Style)</p>
             </div>
         </div>
 
         <div class="wr-calc-grid">
             <div class="input-stack">
                 <div class="input-field">
-                    <label for="totalMatch">Total Match</label>
+                    <label for="totalMatch">Total Pertandingan Saat Ini</label>
                     <div class="input-wrap">
-                        <input type="number" id="totalMatch" min="1" value="500" placeholder="cth: 500">
+                        <input type="number" id="totalMatch" min="1" value="1000" placeholder="Contoh: 1000">
                         <span>MATCH</span>
                     </div>
                 </div>
                 <div class="input-field">
-                    <label for="totalWin">Total Win</label>
+                    <label for="currentWr">Winrate Saat Ini (%)</label>
                     <div class="input-wrap">
-                        <input type="number" id="totalWin" min="0" value="300" placeholder="cth: 300">
-                        <span>WIN</span>
+                        <input type="number" id="currentWr" step="0.01" min="0" max="100" value="55" placeholder="Contoh: 55">
+                        <span>%</span>
                     </div>
                 </div>
                 <div class="input-field">
-                    <label for="targetWr">Target Winrate</label>
+                    <label for="targetWr">Target Winrate (%)</label>
                     <div class="input-wrap">
-                        <input type="number" id="targetWr" min="1" max="100" step="0.1" value="65" placeholder="cth: 65">
+                        <input type="number" id="targetWr" step="0.01" min="1" max="99.9" value="60" placeholder="Contoh: 60">
                         <span>%</span>
                     </div>
                 </div>
                 <div class="wr-note-box">
-                    Rumus: <b>WR = (Win ÷ Match) × 100%</b>. Win tambahan dihitung dengan asumsi tidak ada kekalahan selama mengejar target.
+                    Asumsi: Kamu menang <b>beruntun tanpa kalah</b> untuk mencapai target WR.
                 </div>
             </div>
 
             <div class="wr-result-card">
                 <div class="wr-result-main">
                     <div class="lbl">Winrate Saat Ini</div>
-                    <div class="big" id="wrCurrent">60.0%</div>
-                    <div class="sub" id="wrCurrentSub">300 W · 200 L · 500 Match</div>
+                    <div class="big" id="wrCurrentDisplay">55.0%</div>
+                    <div class="sub" id="wrCurrentSub">550 W · 450 L · 1000 Match</div>
                 </div>
                 <div class="wr-result-stats">
-                    <div class="wr-stat"><span>Target WR</span><b class="amber" id="wrTargetOut">65.0%</b></div>
-                    <div class="wr-stat"><span>Win Dibutuhkan</span><b class="green" id="wrWinNeeded">72</b></div>
-                    <div class="wr-stat"><span>Match Setelah</span><b id="wrMatchAfter">572</b></div>
-                    <div class="wr-stat"><span>Kekalahan</span><b id="wrLoss">200</b></div>
+                    <div class="wr-stat"><span>Target WR</span><b class="amber" id="wrTargetOut">60.0%</b></div>
+                    <div class="wr-stat"><span>Win Beruntun</span><b class="green" id="wrWinNeeded">0</b></div>
+                    <div class="wr-stat"><span>Total Match Baru</span><b id="wrMatchAfter">0</b></div>
+                    <div class="wr-stat"><span>Total Kekalahan</span><b id="wrLoss">450</b></div>
                 </div>
                 <div class="wr-progress-track"><div class="wr-progress-fill" id="wrProgressFill"></div></div>
                 <div class="wr-note-box" id="wrStatusMsg" style="margin-top:14px;">
-                    Butuh <b>72 win beruntun</b> untuk menyentuh target 65%.
+                    -
                 </div>
             </div>
         </div>
@@ -800,7 +800,7 @@
 
     <footer>
         <span>MLBB Speedrun Lab — main <b>pintar</b>, bukan cuma <b>cepat</b>.</span>
-        <span>v5.3 · Robust Fallback Edition</span>
+        <span>v5.4 · Takapedia Style WR</span>
     </footer>
 </div>
 
@@ -961,12 +961,13 @@
     });
 
     /* ============================================================
-       WINRATE CALCULATOR
+       WINRATE CALCULATOR (Takapedia Style)
     ============================================================ */
     const totalMatchInput = document.getElementById('totalMatch');
-    const totalWinInput = document.getElementById('totalWin');
+    const currentWrInput = document.getElementById('currentWr');
     const targetWrInput = document.getElementById('targetWr');
-    const wrCurrent = document.getElementById('wrCurrent');
+    
+    const wrCurrentDisplay = document.getElementById('wrCurrentDisplay');
     const wrCurrentSub = document.getElementById('wrCurrentSub');
     const wrTargetOut = document.getElementById('wrTargetOut');
     const wrWinNeeded = document.getElementById('wrWinNeeded');
@@ -976,46 +977,57 @@
     const wrStatusMsg = document.getElementById('wrStatusMsg');
 
     function calcWinrate() {
-        let N = parseFloat(totalMatchInput.value);
-        let W = parseFloat(totalWinInput.value);
-        let T = parseFloat(targetWrInput.value);
+        // Ambil nilai dari input
+        let tMatch = parseInt(totalMatchInput.value);
+        let cWr = parseFloat(currentWrInput.value);
+        let tWr = parseFloat(targetWrInput.value);
 
-        if (!Number.isFinite(N) || N <= 0) N = 1;
-        if (!Number.isFinite(W) || W < 0) W = 0;
-        if (W > N) W = N;
-        if (!Number.isFinite(T) || T <= 0) T = 1;
-        if (T > 100) T = 100;
-
-        const currentPct = (W / N) * 100;
-        const loss = N - W;
-        const targetDecimal = T / 100;
-
-        let needed = 0;
-        if (targetDecimal > currentPct / 100) {
-            needed = Math.ceil((targetDecimal * N - W) / (1 - targetDecimal));
+        // Validasi kosong
+        if (isNaN(tMatch) || isNaN(cWr) || isNaN(tWr)) {
+            wrStatusMsg.innerHTML = "<span style='color: #fda4af;'>Mohon isi semua kolom terlebih dahulu!</span>";
+            return;
         }
-        if (needed < 0) needed = 0;
 
-        const matchAfter = N + needed;
+        // Validasi Logika
+        if (tWr >= 100 || tWr <= cWr) {
+            wrStatusMsg.innerHTML = "<span style='color: #fda4af;'>Target WR harus lebih besar dari WR saat ini dan kurang dari 100%!</span>";
+            return;
+        }
 
-        wrCurrent.textContent = currentPct.toFixed(1) + '%';
-        wrCurrentSub.textContent = Math.round(W) + ' W · ' + Math.round(loss) + ' L · ' + Math.round(N) + ' Match';
-        wrTargetOut.textContent = T.toFixed(1) + '%';
-        wrWinNeeded.textContent = needed.toLocaleString('id-ID');
+        // Matematika (Sesuai request lu)
+        // Total Kemenangan Saat Ini = Total Match * (Current WR / 100)
+        const totalWin = Math.round(tMatch * (cWr / 100));
+        const loss = tMatch - totalWin;
+
+        // Rumus win beruntun: (TMatch * TargetWR - 100 * TotalWin) / (100 - TargetWR)
+        const rumus = (tMatch * tWr - 100 * totalWin) / (100 - tWr);
+        
+        // Dibulatkan ke atas karena tidak ada setengah pertandingan
+        const matchNeeded = Math.ceil(rumus);
+
+        const matchAfter = tMatch + matchNeeded;
+        const newWr = ((totalWin + matchNeeded) / matchAfter) * 100;
+
+        // Update UI
+        wrCurrentDisplay.textContent = cWr.toFixed(1) + '%';
+        wrCurrentSub.textContent = totalWin + ' W · ' + loss + ' L · ' + tMatch + ' Match';
+        wrTargetOut.textContent = tWr.toFixed(1) + '%';
+        wrWinNeeded.textContent = matchNeeded.toLocaleString('id-ID');
         wrMatchAfter.textContent = matchAfter.toLocaleString('id-ID');
-        wrLoss.textContent = Math.round(loss).toLocaleString('id-ID');
+        wrLoss.textContent = loss.toLocaleString('id-ID');
 
-        const progress = Math.min(100, (currentPct / T) * 100);
+        const progress = Math.min(100, (cWr / tWr) * 100);
         wrProgressFill.style.width = progress + '%';
 
-        if (needed === 0) {
-            wrStatusMsg.innerHTML = 'Winrate kamu sudah <b>menyentuh atau melewati target</b>. Pertahankan performa!';
+        // Pesan Status
+        if (matchNeeded > 0) {
+            wrStatusMsg.innerHTML = `Kamu memerlukan sekitar <b>${matchNeeded.toLocaleString('id-ID')}</b> kali <b>Win Beruntun</b> (tanpa kalah) untuk mencapai win rate <b>${tWr}%</b>.`;
         } else {
-            wrStatusMsg.innerHTML = 'Butuh <b>' + needed.toLocaleString('id-ID') + ' win beruntun</b> untuk menyentuh target ' + T.toFixed(1) + '%.';
+            wrStatusMsg.innerHTML = "<b>Target Win Rate Anda sudah tercapai atau melebihi!</b>";
         }
     }
 
-    [totalMatchInput, totalWinInput, targetWrInput].forEach(function (el) {
+    [totalMatchInput, currentWrInput, targetWrInput].forEach(function (el) {
         el.addEventListener('input', calcWinrate);
     });
 
@@ -1152,7 +1164,6 @@
         const buildObj = getBuildForHero(hero);
         let builds = buildObj.top_builds;
         
-        // Pastikan array valid dan tidak kosong
         if (!Array.isArray(builds) || builds.length === 0) {
             builds = [DEFAULT_BUILDS.fighter];
         }
@@ -1163,7 +1174,6 @@
         
         let currentBuild = builds[idx];
         
-        // Pastikan currentBuild punya properti items
         if (!currentBuild || typeof currentBuild !== 'object' || !currentBuild.items) {
             currentBuild = DEFAULT_BUILDS.fighter;
         }
@@ -1265,7 +1275,7 @@
     }
 
     async function fetchJSON(path) {
-        const res = await fetch(CDN_BASE + path + '?v=3'); // ?v=3 biar browser gak pake cache lama
+        const res = await fetch(CDN_BASE + path + '?v=4'); // update v=4 biar cache clear
         if (!res.ok) throw new Error('HTTP ' + res.status + ' saat memuat ' + path);
         return await res.json();
     }
